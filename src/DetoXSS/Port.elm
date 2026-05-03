@@ -27,6 +27,8 @@ module DetoXSS.Port exposing
     , stripControl
     )
 
+{- | A module for handling communication between JavaScript and Elm through ports, specifically for sending HTML and URL inputs to Elm for sanitization and analysis, and receiving the results back in a structured format. -}
+
 import DetoXSS.Ast as Ast
 import DetoXSS.Attributes as Attrs
 import DetoXSS.Core as Core exposing (RawInput, SafeHtml, ValidatedInput, getContent)

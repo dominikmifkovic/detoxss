@@ -13,6 +13,8 @@ module DetoXSS.Validate exposing
     , matchesRegex
     )
 
+{- | A module for validating user input such as emails, phone numbers, usernames, and passwords. It defines a set of validation rules and provides functions to apply these rules to input strings, returning either a validated input or a list of validation errors. -}
+
 import DetoXSS.Core exposing (ValidatedInput, fromValidated)
 import Regex exposing (Regex)
 

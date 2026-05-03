@@ -7,6 +7,8 @@ module DetoXSS.Sanitize exposing
     , stripControl
     )
 
+{- | A module for sanitizing HTML content and attributes to prevent XSS vulnerabilities. It includes functions for encoding HTML entities, decoding basic entities, stripping control characters, and sanitizing text and attributes based on a whitelist configuration. -}
+
 import Char
 import DetoXSS.Core exposing (SafeHtml, ValidatedInput, fromSanitized, fromValidated)
 import DetoXSS.Whitelist as WL

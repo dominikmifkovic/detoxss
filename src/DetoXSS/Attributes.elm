@@ -6,6 +6,9 @@ module DetoXSS.Attributes exposing
     , defaultSchemes
     )
 
+{-|
+A module for validating and sanitizing URL attributes (like href and src) to prevent XSS-}
+
 import Char
 import DetoXSS.Core exposing (ValidatedInput, fromValidated)
 import DetoXSS.Sanitize exposing (sanitizeForAttribute)

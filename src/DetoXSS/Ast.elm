@@ -17,6 +17,9 @@ module DetoXSS.Ast exposing
     , classifyBalanced
     )
 
+{-| A module for working with the Abstract Syntax Tree (AST) of HTML expressions and classifying them based on XSS risk.
+-}
+
 import Char
 import DetoXSS.ExprParser as ExprParser exposing (HtmlAttribute, HtmlNode(..))
 import String

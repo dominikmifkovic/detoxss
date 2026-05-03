@@ -21,6 +21,8 @@ module DetoXSS.Core exposing
     , isAttrAllowed
     )
 
+{- | A core module defining types and basic functions for handling safe content, validation, and whitelist state management in the DetoXSS library. -}
+
 import DetoXSS.Whitelist as WL
 
 
