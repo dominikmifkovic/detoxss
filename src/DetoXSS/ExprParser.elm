@@ -12,6 +12,8 @@ This module converts an input string into a lightweight tree representation used
 by the AST analyzer. It is intentionally tolerant because security-related input
 can be malformed, incomplete, or intentionally obfuscated.
 
+Most users should use the higher-level functions in `DetoXSS.Ast` instead of
+calling this parser directly.
 
 @docs parseExpression
 
@@ -24,25 +26,54 @@ import Parser exposing (..)
 import Set
 
 
+{-| Result of parsing an HTML-like input.
+
+`Ok` contains parsed HTML-like nodes. `Err` contains a parser error message.
+
+This type is intentionally small because the parser is used as an internal
+analysis step for XSS detection.
+-}
 type Parsed
     = Ok (List HtmlNode)
     | Err String
 
 
+{-| Lightweight HTML-like node representation.
+
+The parser distinguishes element nodes, text nodes, and comments. Element nodes
+contain a tag name, attributes, child nodes, and source position.
+-}
 type HtmlNode
     = Element { tag : String, attributes : List HtmlAttribute, children : List HtmlNode, position : Position }
     | Text { content : String, position : Position }
     | Comment { content : String, position : Position }
 
 
+{-| HTML-like attribute representation.
+
+Each attribute contains its normalized name, parsed value, and source position.
+Boolean attributes are represented with an empty string as their value.
+-}
 type alias HtmlAttribute =
     { name : String, value : String, position : Position }
 
 
+{-| Source position in the parsed input.
+
+The position stores row and column numbers reported by the Elm parser.
+-}
 type alias Position =
     { row : Int, col : Int }
 
 
+{-| Parse an HTML-like string into a list of lightweight nodes.
+
+The parser is tolerant and is intended for security analysis rather than
+browser-exact HTML parsing.
+
+    parseExpression "<p>Hello</p>"
+
+-}
 parseExpression : String -> Parsed
 parseExpression src =
     parseWith htmlDocument src
@@ -66,6 +97,7 @@ parseWith parser src =
 
         Result.Err deadEnds ->
             Err (deadEndsToString deadEnds)
+
 
 stripNullBytesForParser : String -> String
 stripNullBytesForParser src =
@@ -95,6 +127,7 @@ stripQuotes src =
         |> String.replace "\"" ""
         |> String.replace "'" ""
 
+
 decodeNamedEntities : String -> String
 decodeNamedEntities src =
     src
@@ -105,6 +138,7 @@ decodeNamedEntities src =
         |> String.replace "&#39;" "'"
         |> String.replace "&sol;" "/"
         |> String.replace "&colon;" ":"
+
 
 decodeHtmlNumericEntities : String -> String
 decodeHtmlNumericEntities src =
@@ -124,10 +158,12 @@ decodeEntitiesHelp remaining acc =
             in
             if List.isEmpty hexChars then
                 decodeEntitiesHelp rest (List.reverse (String.toList "&#x") ++ acc)
+
             else
                 case hexToInt (String.fromList hexChars) of
                     Just code ->
                         decodeEntitiesHelp after (Char.fromCode code :: acc)
+
                     Nothing ->
                         decodeEntitiesHelp rest (List.reverse (String.toList "&#x") ++ acc)
 
@@ -138,10 +174,12 @@ decodeEntitiesHelp remaining acc =
             in
             if List.isEmpty decChars then
                 decodeEntitiesHelp rest (List.reverse (String.toList "&#") ++ acc)
+
             else
                 case String.toInt (String.fromList decChars) of
                     Just code ->
                         decodeEntitiesHelp after (Char.fromCode code :: acc)
+
                     Nothing ->
                         decodeEntitiesHelp rest (List.reverse (String.toList "&#") ++ acc)
 
@@ -154,11 +192,14 @@ collectUntilSemicolon remaining acc =
     case remaining of
         [] ->
             ( List.reverse acc, [] )
+
         ';' :: rest ->
             ( List.reverse acc, rest )
+
         c :: rest ->
             if Char.isAlphaNum c then
                 collectUntilSemicolon rest (c :: acc)
+
             else
                 ( List.reverse acc, c :: rest )
 
@@ -173,12 +214,15 @@ decodeUnicodeHelp remaining acc =
     case remaining of
         [] ->
             String.fromList (List.reverse acc)
+
         '\\' :: 'u' :: h1 :: h2 :: h3 :: h4 :: rest ->
             case hexToInt (String.fromList [ h1, h2, h3, h4 ]) of
                 Just code ->
                     decodeUnicodeHelp rest (Char.fromCode code :: acc)
+
                 Nothing ->
                     decodeUnicodeHelp (h1 :: h2 :: h3 :: h4 :: rest) ('u' :: '\\' :: acc)
+
         c :: rest ->
             decodeUnicodeHelp rest (c :: acc)
 
@@ -193,12 +237,15 @@ decodeHexHelp remaining acc =
     case remaining of
         [] ->
             String.fromList (List.reverse acc)
+
         '\\' :: 'x' :: h1 :: h2 :: rest ->
             case hexToInt (String.fromList [ h1, h2 ]) of
                 Just code ->
                     decodeHexHelp rest (Char.fromCode code :: acc)
+
                 Nothing ->
                     decodeHexHelp (h1 :: h2 :: rest) ('x' :: '\\' :: acc)
+
         c :: rest ->
             decodeHexHelp rest (c :: acc)
 
@@ -213,15 +260,19 @@ decodeUrlHelp remaining acc =
     case remaining of
         [] ->
             String.fromList (List.reverse acc)
+
         '%' :: h1 :: h2 :: rest ->
             case hexToInt (String.fromList [ h1, h2 ]) of
                 Just code ->
                     if (code >= 0x20 && code <= 0x7E) || code == 0x09 || code == 0x0A || code == 0x0D then
                         decodeUrlHelp rest (Char.fromCode code :: acc)
+
                     else
                         decodeUrlHelp (h1 :: h2 :: rest) acc
+
                 Nothing ->
                     decodeUrlHelp (h1 :: h2 :: rest) acc
+
         c :: rest ->
             decodeUrlHelp rest (c :: acc)
 
@@ -232,25 +283,35 @@ hexToInt s =
         List.foldr
             (\c acc ->
                 case acc of
-                    Nothing -> Nothing
+                    Nothing ->
+                        Nothing
+
                     Just ( result, mult ) ->
                         case hexCharToInt c of
-                            Just d  -> Just ( result + d * mult, mult * 16 )
-                            Nothing -> Nothing
+                            Just d ->
+                                Just ( result + d * mult, mult * 16 )
+
+                            Nothing ->
+                                Nothing
             )
             (Just ( 0, 1 ))
             (String.toList (String.toLower s))
     of
-        Just ( result, _ ) -> Just result
-        Nothing            -> Nothing
+        Just ( result, _ ) ->
+            Just result
+
+        Nothing ->
+            Nothing
 
 
 hexCharToInt : Char -> Maybe Int
 hexCharToInt c =
     if c >= '0' && c <= '9' then
         Just (Char.toCode c - Char.toCode '0')
+
     else if c >= 'a' && c <= 'f' then
         Just (Char.toCode c - Char.toCode 'a' + 10)
+
     else
         Nothing
 
@@ -265,22 +326,47 @@ deadEndsToString errs =
 problemToString : Problem -> String
 problemToString problem =
     case problem of
-        Expecting str        -> "Expecting " ++ str
-        ExpectingInt         -> "Expecting int"
-        ExpectingHex         -> "Expecting hex"
-        ExpectingOctal       -> "Expecting octal"
-        ExpectingBinary      -> "Expecting binary"
-        ExpectingFloat       -> "Expecting float"
-        ExpectingNumber      -> "Expecting number"
-        ExpectingVariable    -> "Expecting variable"
-        ExpectingSymbol str  -> "Expecting symbol " ++ str
-        ExpectingKeyword str -> "Expecting keyword " ++ str
-        ExpectingEnd         -> "Expecting end"
-        UnexpectedChar       -> "Unexpected char"
-        Problem str          -> str
-        BadRepeat            -> "Bad repeat"
+        Expecting str ->
+            "Expecting " ++ str
 
+        ExpectingInt ->
+            "Expecting int"
 
+        ExpectingHex ->
+            "Expecting hex"
+
+        ExpectingOctal ->
+            "Expecting octal"
+
+        ExpectingBinary ->
+            "Expecting binary"
+
+        ExpectingFloat ->
+            "Expecting float"
+
+        ExpectingNumber ->
+            "Expecting number"
+
+        ExpectingVariable ->
+            "Expecting variable"
+
+        ExpectingSymbol str ->
+            "Expecting symbol " ++ str
+
+        ExpectingKeyword str ->
+            "Expecting keyword " ++ str
+
+        ExpectingEnd ->
+            "Expecting end"
+
+        UnexpectedChar ->
+            "Unexpected char"
+
+        Problem str ->
+            str
+
+        BadRepeat ->
+            "Bad repeat"
 
 
 htmlDocumentStrict : Parser (List HtmlNode)
@@ -318,6 +404,7 @@ htmlNode =
             ]
         |. spaces
 
+
 malformedTag : Parser HtmlNode
 malformedTag =
     getPosition
@@ -331,6 +418,7 @@ malformedTag =
                     )
                     |> map (\content -> Text { content = content, position = posToRecord pos })
             )
+
 
 closingTagSkip : Parser HtmlNode
 closingTagSkip =
@@ -418,6 +506,7 @@ parseElementEnd startPos tag attrs =
                     [ symbol ">"
                     , end
                     ]
+
           else
             succeed
                 (\kids ->
@@ -444,12 +533,29 @@ parseElementEnd startPos tag attrs =
             |. end
         ]
 
+
 isSelfClosing : String -> Bool
 isSelfClosing tag =
     List.member tag
-        [ "area", "base", "br", "col", "embed", "hr", "img", "image"
-        , "input", "link", "meta", "param", "source", "track", "wbr"
-        , "frame", "isindex", "keygen", "command"
+        [ "area"
+        , "base"
+        , "br"
+        , "col"
+        , "embed"
+        , "hr"
+        , "img"
+        , "image"
+        , "input"
+        , "link"
+        , "meta"
+        , "param"
+        , "source"
+        , "track"
+        , "wbr"
+        , "frame"
+        , "isindex"
+        , "keygen"
+        , "command"
         ]
 
 
@@ -489,6 +595,7 @@ closingTagName expectedTag =
             (\actual ->
                 if String.toLower actual == expectedTag then
                     succeed ()
+
                 else
                     problem ("Mismatched closing tag: expected " ++ expectedTag ++ " but found " ++ actual)
             )
@@ -502,8 +609,6 @@ tagName =
         , reserved = Set.empty
         }
         |> map String.toLower
-
-
 
 
 attributes : Parser (List HtmlAttribute)
@@ -572,8 +677,11 @@ quotedValue quote =
                             |> andThen
                                 (\src ->
                                     let
-                                        remaining = String.dropLeft startOffset src
-                                        ( value, consumeCount ) = scanQuotedValue quote (String.toList remaining) []
+                                        remaining =
+                                            String.dropLeft startOffset src
+
+                                        ( value, consumeCount ) =
+                                            scanQuotedValue quote (String.toList remaining) []
                                     in
                                     succeed value
                                         |. chompExactly consumeCount
@@ -586,6 +694,7 @@ chompExactly : Int -> Parser ()
 chompExactly n =
     if n <= 0 then
         succeed ()
+
     else
         chompIf (\_ -> True)
             |> andThen (\_ -> chompExactly (n - 1))
@@ -625,8 +734,8 @@ isSpaceChar c =
         || c == '\t'
         || c == '\n'
         || c == '\r'
-        || c == '\u{000B}' -- vertical tab
-        || c == '\u{000C}' -- form feed
+        || c == '\u{000B}'
+        || c == '\u{000C}'
 
 
 backtickValue : Parser String
