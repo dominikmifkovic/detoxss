@@ -34,15 +34,24 @@ ports should be treated as untrusted. This module provides capped decoders for
 HTML-like values, attribute values, URL values, and lists of sanitized HTML
 values.
 
-The basic decoders do not replace application-level policy decisions. If a
-value should also be classified as `Safe`, `Suspicious`, or `Dangerous`, combine
-this module with `DetoXSS.Ast`.
+The analyzed decoders combine port decoding with `DetoXSS.Ast` classification
+and an application-level analysis policy.
 
-@docs Inbound, UrlResult
+@docs Inbound, UrlResult, AnalysisPolicy, HtmlResult
 
-@docs inboundDecoder
+@docs inboundDecoder, inboundDecoderAnalyzed
 
-@docs rawDecoderCapped, validatedAttrDecoder, safeHtmlDecoderW, safeHtmlListDecoderW, urlDecoderW
+@docs rawDecoderCapped, validatedAttrDecoder
+
+@docs safeHtmlDecoderW, safeHtmlDecoderAnalyzedW, safeHtmlResultDecoderW
+
+@docs safeHtmlListDecoderW, safeHtmlListDecoderAnalyzedW
+
+@docs urlDecoderW
+
+@docs analyzeRawHtml
+
+@docs encodeRisk, encodeHtmlResult
 
 @docs encodeSafeHtml, encodeSafeHtmlList
 
@@ -64,22 +73,30 @@ import DetoXSS.Whitelist as WL
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 
-
+{-| Maximum number of characters accepted by capped port decoders.
+-}
 maxChars : Int
 maxChars =
     100000
 
-
+{-| Maximum number of items accepted by list decoders.
+-}
 maxListLen : Int
 maxListLen =
     512
 
+{-| Remove control characters from a string.
 
+Newline, carriage return, and tab characters are preserved.
+-}
 stripControl : String -> String
 stripControl =
     Sanitize.stripControl
 
+{-| Normalize newline characters.
 
+This converts Windows and old Mac line endings to `\n`.
+-}
 normalizeNewlines : String -> String
 normalizeNewlines s =
     s
@@ -94,20 +111,23 @@ normalizeAndStrip s =
         |> stripControl
 
 
-{-| Policy used by AST-aware port decoders.
+{-| Policy used by analyzed port decoders.
 
-  - `AllowAfterSanitize` keeps the previous behaviour, but still reports the AST risk
-    through `safeHtmlResultDecoderW`.
-  - `RejectDangerous` rejects only inputs classified as `Dangerous`.
-  - `RejectSuspiciousAndDangerous` rejects both `Suspicious` and `Dangerous` inputs.
-
+`AllowAfterSanitize` always allows the value after sanitization.
+`RejectDangerous` rejects values classified as `Dangerous`.
+`RejectSuspiciousAndDangerous` rejects values classified as `Suspicious` or
+`Dangerous`.
 -}
 type AnalysisPolicy
     = AllowAfterSanitize
     | RejectDangerous
     | RejectSuspiciousAndDangerous
 
+{-| Result of analyzing and sanitizing an HTML-like value.
 
+The record contains whether the value was accepted, the AST risk level, the
+sanitized value, and a human-readable reason.
+-}
 type alias HtmlResult =
     { ok : Bool
     , risk : Ast.Risk
@@ -115,20 +135,33 @@ type alias HtmlResult =
     , reason : String
     }
 
+{-| Result of validating a URL-like value from a port.
 
+`ok` says whether the value was accepted. `value` contains either the accepted
+URL or a safe fallback.
+-}
 type alias UrlResult =
     { ok : Bool
     , value : ValidatedInput
     }
 
+{-| Values that can be received through the generic inbound port decoder.
 
+The constructors distinguish sanitized HTML-like values, validated attribute
+values, URL validation results, and lists of sanitized HTML-like values.
+-}
 type Inbound
     = InHtml SafeHtml
     | InAttr ValidatedInput
     | InUrl UrlResult
     | InHtmlList (List SafeHtml)
 
+{-| Decode an inbound JSON value from a port.
 
+The decoder expects an object with a `type` field and a `value` field. The
+`type` field decides whether the value is treated as HTML-like content,
+attribute content, URL content, or a list of HTML-like values.
+-}
 inboundDecoder : WL.State -> Decoder Inbound
 inboundDecoder wlState =
     Decode.field "type" Decode.string
@@ -155,7 +188,12 @@ inboundDecoder wlState =
                         Decode.fail "unknown inbound type"
             )
 
+{-| Decode inbound port data and apply AST analysis for HTML-like values.
 
+The provided policy controls whether suspicious or dangerous values are accepted
+or rejected. Non-HTML values are decoded using the same rules as
+`inboundDecoder`.
+-}
 inboundDecoderAnalyzed : AnalysisPolicy -> WL.State -> Decoder Inbound
 inboundDecoderAnalyzed policy wlState =
     Decode.field "type" Decode.string
@@ -182,7 +220,10 @@ inboundDecoderAnalyzed policy wlState =
                         Decode.fail "unknown inbound type"
             )
 
+{-| Decode a raw string with length limiting.
 
+The decoder fails if the value exceeds `maxChars`.
+-}
 rawDecoderCapped : Decoder RawInput
 rawDecoderCapped =
     Decode.string
@@ -199,61 +240,90 @@ rawDecoderCapped =
                     Decode.succeed (Core.fromRaw cleaned)
             )
 
-
+{-| Decode an attribute-like string and wrap it as validated input.
+-}
 validatedAttrDecoder : Decoder ValidatedInput
 validatedAttrDecoder =
     Decode.string
         |> Decode.andThen mapToAttr
 
-
+{-| Decode an HTML-like string and sanitize it with a whitelist state.
+-}
 safeHtmlDecoderW : WL.State -> Decoder SafeHtml
 safeHtmlDecoderW wlState =
     Decode.string
         |> Decode.andThen (mapToHtml wlState)
 
+{-| Decode a single HTML-like string with whitelist sanitization and AST policy.
 
+If the policy rejects the detected risk level, decoding fails.
+-}
 safeHtmlDecoderAnalyzedW : AnalysisPolicy -> WL.State -> Decoder SafeHtml
 safeHtmlDecoderAnalyzedW policy wlState =
     Decode.string
         |> Decode.andThen (mapToHtmlAnalyzed policy wlState)
 
+{-| Decode a single HTML-like string and return an analysis result.
 
+Unlike `safeHtmlDecoderAnalyzedW`, this decoder returns a structured
+`HtmlResult` containing the risk and rejection reason instead of only returning
+the sanitized value.
+-}
 safeHtmlResultDecoderW : AnalysisPolicy -> WL.State -> Decoder HtmlResult
 safeHtmlResultDecoderW policy wlState =
     Decode.string
         |> Decode.andThen (mapToHtmlResult policy wlState)
 
+{-| Decode a list of HTML-like strings and sanitize every item.
 
+The decoder fails if the list exceeds `maxListLen`.
+-}
 safeHtmlListDecoderW : WL.State -> Decoder (List SafeHtml)
 safeHtmlListDecoderW wlState =
     Decode.list Decode.string
         |> Decode.andThen (mapToHtmlList wlState)
 
+{-| Decode a list of HTML-like strings with whitelist sanitization and AST policy.
 
+If any item is rejected by the policy, the whole decoder fails.
+-}
 safeHtmlListDecoderAnalyzedW : AnalysisPolicy -> WL.State -> Decoder (List SafeHtml)
 safeHtmlListDecoderAnalyzedW policy wlState =
     Decode.list Decode.string
         |> Decode.andThen (mapToHtmlListAnalyzed policy wlState)
 
-
+{-| Decode a URL-like string and validate it with whitelist URL schemes.
+-}
 urlDecoderW : WL.State -> Decoder UrlResult
 urlDecoderW wlState =
     Decode.string
         |> Decode.andThen (mapToUrl wlState)
 
+{-| Analyze and sanitize a raw HTML-like string.
 
+This helper is useful when an application already has a raw string and wants to
+apply the same AST policy and whitelist sanitization logic used by the analyzed
+port decoders.
+-}
 analyzeRawHtml : String -> Ast.Risk
 analyzeRawHtml raw =
     raw
         |> normalizeAndStrip
         |> Ast.classifyBalanced
 
+{-| Encode an AST risk value as a JSON string.
 
+The output is one of `"safe"`, `"suspicious"`, or `"dangerous"`.
+-}
 encodeRisk : Ast.Risk -> Encode.Value
 encodeRisk risk =
     Encode.string (riskToString risk)
 
+{-| Encode an `HtmlResult` as JSON.
 
+This is useful for sending analysis results back to JavaScript through an
+outbound port.
+-}
 encodeHtmlResult : HtmlResult -> Encode.Value
 encodeHtmlResult result =
     Encode.object
@@ -263,31 +333,36 @@ encodeHtmlResult result =
         , ( "reason", Encode.string result.reason )
         ]
 
-
+{-| Encode sanitized HTML-like content for an outbound port.
+-}
 encodeSafeHtml : SafeHtml -> Encode.Value
 encodeSafeHtml sh =
     Encode.string (getContent sh)
 
-
+{-| Encode a list of sanitized HTML-like values for an outbound port.
+-}
 encodeSafeHtmlList : List SafeHtml -> Encode.Value
 encodeSafeHtmlList lst =
     lst
         |> List.map (getContent >> Encode.string)
         |> Encode.list identity
 
-
+{-| Encode validated input for an outbound port.
+-}
 encodeValidated : ValidatedInput -> Encode.Value
 encodeValidated v =
     Encode.string (getContent v)
 
-
+{-| Encode a list of validated input values for an outbound port.
+-}
 encodeValidatedList : List ValidatedInput -> Encode.Value
 encodeValidatedList xs =
     xs
         |> List.map (getContent >> Encode.string)
         |> Encode.list identity
 
-
+{-| Encode a URL validation result for an outbound port.
+-}
 encodeUrlResult : UrlResult -> Encode.Value
 encodeUrlResult r =
     Encode.object

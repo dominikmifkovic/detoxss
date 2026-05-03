@@ -31,7 +31,7 @@ or sanitize the input by itself. For output sanitization, use
 
 @docs classifyString, classifyBalanced, classifyExpression, classifyExpressionNode
 
-@docs scanBalanced, scanExpression, scanExpressionNode
+@docs scanBalanced, scanBalancedVerbose, scanExpression, scanExpressionNode
 
 @docs buildRiskTree, renderRiskTree
 
@@ -46,12 +46,23 @@ import DetoXSS.ExprParser as ExprParser exposing (HtmlAttribute, HtmlNode(..))
 import String
 
 
+{-| Risk classification returned by the analyzer.
+
+`Safe` means that no known risky pattern was found. `Suspicious` means that the
+input contains potentially risky patterns. `Dangerous` means that a clear XSS
+indicator was detected.
+-}
 type Risk
     = Safe
     | Suspicious
     | Dangerous
 
 
+{-| Warning produced by the analyzer.
+
+A warning contains an optional source position, a risk level, and a human
+readable message explaining the finding.
+-}
 type alias Warning =
     { range : Maybe ExprParser.Position
     , risk : Risk
@@ -59,6 +70,11 @@ type alias Warning =
     }
 
 
+{-| Tree node annotated with XSS-related risk information.
+
+`selfWarnings` describe findings directly related to the current node.
+`aggregateRisk` also takes child nodes into account.
+-}
 type RiskNode
     = RiskNode
         { node : HtmlNode
@@ -89,6 +105,11 @@ stripDoctype src =
         src
 
 
+{-| Parse an input string into HTML-like nodes.
+
+This function is tolerant and is intended for analysis, not for browser-exact
+HTML parsing.
+-}
 fromStringToNode : String -> Result String (List HtmlNode)
 fromStringToNode src =
     let
@@ -139,6 +160,10 @@ looksLikeUnclosedStartTag s =
             || containsInlineEventAssignment lower
         )
 
+{-| Classify an input string as `Safe`, `Suspicious`, or `Dangerous`.
+
+This is a high-level helper for string-based classification.
+-}
 classifyString : String -> Risk
 classifyString src =
     src
@@ -204,13 +229,22 @@ looksLikeSecurityRelevantParseFailure src =
                 ]
         )
 
+{-| Analyze an input string and return a compact list of warnings.
+
+This function is suitable for user-facing output because it removes duplicate or
+overly technical warnings.
+-}
 scanBalanced : String -> List Warning
 scanBalanced src =
     src
         |> scanBalancedVerbose
         |> compactWarnings
 
+{-| Return the full internal warning list for an input string.
 
+This is useful for debugging and dataset evaluation. For user-facing output,
+prefer `scanBalanced`, which returns a more compact warning list.
+-}
 scanBalancedVerbose : String -> List Warning
 scanBalancedVerbose src =
     let
@@ -367,6 +401,11 @@ looksLikeAnalyzerShouldNotBeSilent src =
         || (hasMarkupBoundary && hasRiskyTag && hasContextBreak)
         || (hasMarkupBoundary && hasRiskyTag && hasExecutableCall)
 
+{-| Classify an input string using the balanced analyzer.
+
+This combines parsing, AST-based analysis, and additional string-based
+heuristics.
+-}
 classifyBalanced : String -> Risk
 classifyBalanced src =
     src |> scanBalancedVerbose |> aggregateRisk
@@ -726,24 +765,35 @@ decodeUrlHelp2 remaining acc =
         c :: rest -> decodeUrlHelp2 rest (c :: acc)
 
 
+{-| Classify a list of parsed HTML-like nodes.
+-}
 classifyExpression : List HtmlNode -> Risk
 classifyExpression nodes =
     nodes |> List.map buildRiskTree |> List.concatMap collectWarnings |> aggregateRisk
 
-
+{-| Classify a single parsed HTML-like node.
+-}
 classifyExpressionNode : List HtmlNode -> Risk
 classifyExpressionNode = classifyExpression
 
 
+{-| Analyze a list of parsed HTML-like nodes.
+-}
 scanExpression : List HtmlNode -> List Warning
 scanExpression nodes =
     nodes |> List.map buildRiskTree |> List.concatMap collectWarnings
 
 
+{-| Analyze a single parsed HTML-like node.
+-}
 scanExpressionNode : List HtmlNode -> List Warning
 scanExpressionNode = scanExpression
 
+{-| Build a risk-annotated tree from parsed HTML-like nodes.
 
+The result can be used to visualize which parts of the input contributed to the
+overall risk.
+-}
 buildRiskTree : HtmlNode -> RiskNode
 buildRiskTree node =
     case node of
@@ -1873,12 +1923,14 @@ isDataHtmlPayload value =
         , "onerror", "onload", "phnjcmlwd"
         ]
 
-
+{-| Render parsed HTML-like nodes as a readable text tree.
+-}
 renderExpression : List HtmlNode -> List Warning -> String
 renderExpression nodes _ =
     nodes |> List.map (renderTree 0) |> String.join "\n"
 
-
+{-| Render a single parsed HTML-like node as readable text.
+-}
 renderExpressionNode : List HtmlNode -> List Warning -> String
 renderExpressionNode = renderExpression
 
@@ -1895,7 +1947,8 @@ renderTree indent node =
         Comment cmt ->
             pad ++ "COMMENT: " ++ String.left 40 cmt.content
 
-
+{-| Render a risk-annotated tree as readable text.
+-}
 renderRiskTree : List RiskNode -> String
 renderRiskTree nodes =
     nodes |> List.map (renderRiskNode 0) |> String.join "\n"

@@ -27,27 +27,52 @@ import DetoXSS.Core exposing (ValidatedInput, fromValidated)
 import DetoXSS.Sanitize exposing (sanitizeForAttribute)
 import DetoXSS.Whitelist as WL
 
+{-| Default URL schemes accepted by `safeHref` and `safeSrc`.
 
+The list contains common non-script schemes.
+-}
 defaultSchemes : List String
 defaultSchemes =
     [ "http:", "https:", "mailto:", "tel:" ]
 
+{-| Validate a value intended for an `href` attribute.
 
+The function returns a pair. The first value says whether the URL was accepted.
+The second value contains a validated URL value or a safe fallback.
+
+    safeHref "https://example.com"
+    safeHref "javascript:alert(1)"
+
+-}
 safeHref : String -> ( Bool, ValidatedInput )
 safeHref =
     validateUrlWithSchemes defaultSchemes
 
+{-| Validate a value intended for a `src` attribute.
 
+The function returns a pair. The first value says whether the URL was accepted.
+The second value contains a validated URL value or a safe fallback.
+
+    safeSrc "https://example.com/image.png"
+    safeSrc "javascript:alert(1)"
+
+-}
 safeSrc : String -> ( Bool, ValidatedInput )
 safeSrc =
     validateUrlWithSchemes defaultSchemes
 
+{-| Validate a value intended for an `href` attribute using whitelist schemes.
 
+The allowed schemes are taken from the provided whitelist state.
+-}
 safeHrefW : WL.State -> String -> ( Bool, ValidatedInput )
 safeHrefW state url =
     validateUrlWithSchemes (WL.getAllowedSchemes state) url
 
+{-| Validate a value intended for a `src` attribute using whitelist schemes.
 
+The allowed schemes are taken from the provided whitelist state.
+-}
 safeSrcW : WL.State -> String -> ( Bool, ValidatedInput )
 safeSrcW state url =
     validateUrlWithSchemes (WL.getAllowedSchemes state) url

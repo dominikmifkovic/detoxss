@@ -37,7 +37,10 @@ sanitization or AST analysis before it is used in an output context.
 import DetoXSS.Core exposing (ValidatedInput, fromValidated)
 import Regex exposing (Regex)
 
+{-| Possible validation errors returned by the validation helpers.
 
+These errors describe why a value did not pass a validation rule.
+-}
 type ValidationError
     = Empty
     | TooShort Int
@@ -48,11 +51,19 @@ type ValidationError
     | WeakPassword String
     | Custom String
 
+{-| Validation rule.
 
+A rule receives a string and returns a list of validation errors. An empty list
+means that the value passed that rule.
+-}
 type alias Rule =
     String -> List ValidationError
 
+{-| Run a list of validation rules against a string.
 
+The input is trimmed before validation. If all rules pass, the cleaned value is
+returned as `ValidatedInput`.
+-}
 validate : List Rule -> String -> Result (List ValidationError) ValidatedInput
 validate rules raw =
     let
@@ -69,7 +80,8 @@ validate rules raw =
     else
         Err errors
 
-
+{-| Require a non-empty value.
+-}
 nonEmpty : Rule
 nonEmpty s =
     if String.isEmpty (String.trim s) then
@@ -79,6 +91,8 @@ nonEmpty s =
         []
 
 
+{-| Require a minimum string length.
+-}
 minLength : Int -> Rule
 minLength n s =
     if String.length s < n then
@@ -88,6 +102,8 @@ minLength n s =
         []
 
 
+{-| Require a maximum string length.
+-}
 maxLength : Int -> Rule
 maxLength n s =
     if String.length s > n then
@@ -97,6 +113,11 @@ maxLength n s =
         []
 
 
+{-| Require the value to match a regular expression.
+
+The description is used in the `InvalidChars` error when the value does not
+match.
+-}
 allowedChars : Regex -> String -> Rule
 allowedChars rx description =
     \s ->
@@ -107,6 +128,8 @@ allowedChars rx description =
             [ InvalidChars description ]
 
 
+{-| Create a validation rule from a regular expression and custom error.
+-}
 matchesRegex : Regex -> ValidationError -> Rule
 matchesRegex rx err =
     \s ->
@@ -117,6 +140,11 @@ matchesRegex rx err =
             [ err ]
 
 
+{-| Validate a simple email address.
+
+This checks the general shape of an email address. It does not verify whether
+the address actually exists.
+-}
 validateEmail : String -> Result (List ValidationError) ValidatedInput
 validateEmail s =
     let
@@ -130,6 +158,10 @@ validateEmail s =
         s
 
 
+{-| Validate a phone-like value.
+
+The value may contain digits, spaces, plus signs, dashes, and parentheses.
+-}
 validatePhone : String -> Result (List ValidationError) ValidatedInput
 validatePhone s =
     let
@@ -158,6 +190,11 @@ validatePhone s =
         s
 
 
+{-| Validate a username.
+
+The username must be non-empty, have an allowed length, and contain only
+letters, digits, underscores, dots, or dashes.
+-}
 validateUsername : String -> Result (List ValidationError) ValidatedInput
 validateUsername s =
     let
@@ -168,11 +205,16 @@ validateUsername s =
         [ nonEmpty
         , minLength 3
         , maxLength 32
-        , allowedChars usernameRx "povolené sú len písmená, čísla a znaky _.-"
+        , allowedChars usernameRx "only letters, numbers and characters _.- are allowed"
         ]
         s
 
 
+{-| Validate a password.
+
+The password must be non-empty, have a minimum length, and contain a mixture of
+character classes.
+-}
 validatePassword : String -> Result (List ValidationError) ValidatedInput
 validatePassword s =
     let
@@ -192,10 +234,10 @@ validatePassword s =
             let
                 problems =
                     []
-                        |> addIfMissing (Regex.contains hasUpper str) "aspoň jedno veľké písmeno"
-                        |> addIfMissing (Regex.contains hasLower str) "aspoň jedno malé písmeno"
-                        |> addIfMissing (Regex.contains hasDigit str) "aspoň jednu číslicu"
-                        |> addIfMissing (Regex.contains hasSpecial str) "aspoň jeden špeciálny znak"
+                        |> addIfMissing (Regex.contains hasUpper str) "at least one uppercase letter"
+                        |> addIfMissing (Regex.contains hasLower str) "at least one lowercase letter"
+                        |> addIfMissing (Regex.contains hasDigit str) "at least one digit"
+                        |> addIfMissing (Regex.contains hasSpecial str) "at least one special character"
             in
             case List.reverse problems of
                 [] ->

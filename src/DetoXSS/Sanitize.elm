@@ -29,7 +29,12 @@ import Char
 import DetoXSS.Core exposing (SafeHtml, ValidatedInput, fromSanitized, fromValidated)
 import DetoXSS.Whitelist as WL
 
+{-| Escape HTML-sensitive characters.
 
+This converts characters such as `<`, `>`, `&`, `"`, and `'` into HTML
+entities so that the value can be displayed as text instead of being interpreted
+as markup.
+-}
 encodeHtml : String -> String
 encodeHtml s =
     let
@@ -56,7 +61,11 @@ encodeHtml s =
     in
     String.foldr step "" s
 
+{-| Decode a small set of common HTML entities.
 
+This helper is used before sanitization so that already encoded input can be
+normalized before being escaped again.
+-}
 decodeBasicEntities : String -> String
 decodeBasicEntities s =
     s
@@ -67,7 +76,13 @@ decodeBasicEntities s =
         |> String.replace "&#39;" "'"
         |> String.replace "&#47;" "/"
 
+{-| Sanitize input that should be displayed as plain text.
 
+The whole input is treated as text. HTML tags are not preserved.
+
+    sanitizeText "<script>alert(1)</script>"
+
+-}
 sanitizeText : String -> SafeHtml
 sanitizeText raw =
     raw
@@ -76,7 +91,12 @@ sanitizeText raw =
         |> encodeHtml
         |> fromSanitized
 
+{-| Sanitize a value intended for an attribute-like context.
 
+This removes control characters, collapses whitespace, and wraps the result as
+validated input. It does not make arbitrary attribute usage safe in every
+possible context.
+-}
 sanitizeForAttribute : String -> ValidatedInput
 sanitizeForAttribute v =
     v
@@ -84,7 +104,10 @@ sanitizeForAttribute v =
         |> collapseWs
         |> fromValidated
 
+{-| Remove control characters from a string.
 
+Newline, carriage return, and tab characters are preserved.
+-}
 stripControl : String -> String
 stripControl =
     String.filter
@@ -102,18 +125,6 @@ collapseWs s =
     s
         |> String.words
         |> String.join " "
-
-
--- Sanitizer-specific normalization
---
--- The sanitizer must not blindly normalize the whole document as if it was a
--- browser parser. That could turn harmless text into markup. We therefore use
--- two levels of normalization:
---   * decodeForHtmlStructure decodes HTML entities before tokenization, so
---     encoded tags such as &lt;script&gt; or &#x3c;script&#x3e; are sanitized as tags.
---   * decodeForUrlCheck is stronger and is used only for URL-like attributes
---     before checking the scheme. This catches obfuscated schemes such as
---     java&#x0A;script:, java%0Ascript:, jav\x61script:, or \6a avascript:.
 
 
 decodeForHtmlStructure : String -> String
@@ -586,7 +597,14 @@ hexCharToIntLocal c =
     else
         Nothing
 
+{-| Sanitize HTML-like input using a whitelist state.
 
+When whitelist mode is enabled, only allowed tags and attributes are preserved.
+When whitelist mode is disabled, the whole input is escaped as text.
+
+    sanitizeWithWhitelist whitelistState "<p>Hello</p>"
+
+-}
 sanitizeWithWhitelist : WL.State -> String -> SafeHtml
 sanitizeWithWhitelist state raw =
     if WL.isEnabled state then
