@@ -6,7 +6,7 @@ module DetoXSS.ExprParser exposing
     , Position
     )
 
-{- | A module for parsing HTML expressions into an Abstract Syntax Tree (AST) representation, which can then be analyzed for potential XSS vulnerabilities. -}
+{-| A module for parsing HTML expressions into an Abstract Syntax Tree (AST) representation, which can then be analyzed for potential XSS vulnerabilities. -}
 
 import Char
 import Parser exposing (..)

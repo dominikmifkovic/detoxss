@@ -28,7 +28,7 @@ module DetoXSS.Whitelist exposing
     , isBlockedScheme
     )
 
-{- | A module for managing a whitelist of allowed HTML tags, attributes, and URL schemes to prevent XSS vulnerabilities. It provides functions to enable or disable the whitelist, set custom configurations, and check if specific tags or attributes are allowed based on the current whitelist state. -}
+{-| A module for managing a whitelist of allowed HTML tags, attributes, and URL schemes to prevent XSS vulnerabilities. It provides functions to enable or disable the whitelist, set custom configurations, and check if specific tags or attributes are allowed based on the current whitelist state. -}
 
 import Char exposing (isAlphaNum)
 
