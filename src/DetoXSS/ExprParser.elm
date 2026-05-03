@@ -6,7 +6,18 @@ module DetoXSS.ExprParser exposing
     , Position
     )
 
-{-| A module for parsing HTML expressions into an Abstract Syntax Tree (AST) representation, which can then be analyzed for potential XSS vulnerabilities. -}
+{-| Tolerant parser for HTML-like input.
+
+This module converts an input string into a lightweight tree representation used
+by the AST analyzer. It is intentionally tolerant because security-related input
+can be malformed, incomplete, or intentionally obfuscated.
+
+
+@docs parseExpression
+
+@docs Parsed, HtmlNode, HtmlAttribute, Position
+
+-}
 
 import Char
 import Parser exposing (..)

@@ -27,7 +27,34 @@ module DetoXSS.Port exposing
     , stripControl
     )
 
-{- | A module for handling communication between JavaScript and Elm through ports, specifically for sending HTML and URL inputs to Elm for sanitization and analysis, and receiving the results back in a structured format. -}
+{-| JSON decoders and encoders for values crossing Elm ports.
+
+Ports are a trust boundary between Elm and JavaScript. Values received through
+ports should be treated as untrusted. This module provides capped decoders for
+HTML-like values, attribute values, URL values, and lists of sanitized HTML
+values.
+
+The basic decoders do not replace application-level policy decisions. If a
+value should also be classified as `Safe`, `Suspicious`, or `Dangerous`, combine
+this module with `DetoXSS.Ast`.
+
+@docs Inbound, UrlResult
+
+@docs inboundDecoder
+
+@docs rawDecoderCapped, validatedAttrDecoder, safeHtmlDecoderW, safeHtmlListDecoderW, urlDecoderW
+
+@docs encodeSafeHtml, encodeSafeHtmlList
+
+@docs encodeValidated, encodeValidatedList
+
+@docs encodeUrlResult
+
+@docs maxChars, maxListLen
+
+@docs normalizeNewlines, stripControl
+
+-}
 
 import DetoXSS.Ast as Ast
 import DetoXSS.Attributes as Attrs

@@ -7,7 +7,23 @@ module DetoXSS.Sanitize exposing
     , stripControl
     )
 
-{- | A module for sanitizing HTML content and attributes to prevent XSS vulnerabilities. It includes functions for encoding HTML entities, decoding basic entities, stripping control characters, and sanitizing text and attributes based on a whitelist configuration. -}
+{-| Sanitization helpers for plain text, attributes, and limited HTML.
+
+Use `sanitizeText` when the whole input should be displayed as text.
+Use `sanitizeWithWhitelist` when a small set of HTML tags and attributes should
+be preserved according to a whitelist configuration.
+
+The sanitizer is designed as a practical safety layer. It should be used
+together with context-aware output handling and, when needed, with the AST
+analyzer from `DetoXSS.Ast`.
+
+@docs sanitizeText, sanitizeWithWhitelist
+
+@docs sanitizeForAttribute
+
+@docs encodeHtml, decodeBasicEntities, stripControl
+
+-}
 
 import Char
 import DetoXSS.Core exposing (SafeHtml, ValidatedInput, fromSanitized, fromValidated)

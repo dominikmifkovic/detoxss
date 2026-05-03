@@ -13,7 +13,26 @@ module DetoXSS.Validate exposing
     , matchesRegex
     )
 
-{- | A module for validating user input such as emails, phone numbers, usernames, and passwords. It defines a set of validation rules and provides functions to apply these rules to input strings, returning either a validated input or a list of validation errors. -}
+{-| General validation helpers for form input.
+
+This module validates whether a value follows application-level rules such as
+being non-empty, having a specific length, matching a regular expression, or
+looking like an email address.
+
+Validation is not the same as XSS protection. A valid value may still need
+sanitization or AST analysis before it is used in an output context.
+
+@docs ValidationError, Rule
+
+@docs validate
+
+@docs validateEmail, validatePhone, validateUsername, validatePassword
+
+@docs nonEmpty, minLength, maxLength
+
+@docs allowedChars, matchesRegex
+
+-}
 
 import DetoXSS.Core exposing (ValidatedInput, fromValidated)
 import Regex exposing (Regex)

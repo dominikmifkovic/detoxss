@@ -17,7 +17,28 @@ module DetoXSS.Ast exposing
     , classifyBalanced
     )
 
-{-| A module for working with the Abstract Syntax Tree (AST) of HTML expressions and classifying them based on XSS risk.
+{-| Static XSS-oriented analysis for HTML-like strings.
+
+This module provides the main detection layer of the package. It classifies
+input as `Safe`, `Suspicious`, or `Dangerous`, and can also return warnings
+explaining why a value was considered risky.
+
+The analyzer is intended for detection and decision making. It does not rewrite
+or sanitize the input by itself. For output sanitization, use
+`DetoXSS.Sanitize`.
+
+@docs Risk, Warning, RiskNode
+
+@docs classifyString, classifyBalanced, classifyExpression, classifyExpressionNode
+
+@docs scanBalanced, scanExpression, scanExpressionNode
+
+@docs buildRiskTree, renderRiskTree
+
+@docs renderExpression, renderExpressionNode
+
+@docs fromStringToNode
+
 -}
 
 import Char

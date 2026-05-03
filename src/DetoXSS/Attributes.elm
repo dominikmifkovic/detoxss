@@ -6,8 +6,21 @@ module DetoXSS.Attributes exposing
     , defaultSchemes
     )
 
-{-|
-A module for validating and sanitizing URL attributes (like href and src) to prevent XSS-}
+{-| Helpers for validating URL-like attribute values.
+
+This module is intended for values used in attributes such as `href` or `src`.
+It checks whether a URL uses an allowed scheme and returns a validated value
+or a safe fallback.
+
+For custom scheme lists, use the whitelist-aware variants.
+
+@docs safeHref, safeSrc
+
+@docs safeHrefW, safeSrcW
+
+@docs defaultSchemes
+
+-}
 
 import Char
 import DetoXSS.Core exposing (ValidatedInput, fromValidated)

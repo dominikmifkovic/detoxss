@@ -21,7 +21,31 @@ module DetoXSS.Core exposing
     , isAttrAllowed
     )
 
-{- | A core module defining types and basic functions for handling safe content, validation, and whitelist state management in the DetoXSS library. -}
+{-| Shared types and helpers used by the DetoXSS package.
+
+This module defines lightweight wrappers for raw, validated, and sanitized
+content. These wrappers help make the intended state of a value explicit in
+type signatures.
+
+The module also re-exports convenience helpers for whitelist state management.
+
+@docs SafeContent, SafeHtml, ValidatedInput, RawInput
+
+@docs Sanitized, Validated, Raw
+
+@docs fromRaw, fromValidated, fromSanitized
+
+@docs getContent
+
+@docs WhitelistState
+
+@docs defaultWhitelist, initWhitelist
+
+@docs enableWhitelist, disableWhitelist, setWhitelist
+
+@docs isWhitelistEnabled, isTagAllowed, isAttrAllowed
+
+-}
 
 import DetoXSS.Whitelist as WL
 
